@@ -32,26 +32,44 @@ library(patchwork)
 set.seed(132)
 ```
 
-# Load in scNRAseq dataset
+
+Link to download the example dataset we are using: https://cf.10xgenomics.com/samples/cell/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz
+
+
+# Load in scRNAseq dataset: ***YOU WILL NEED TO MODIFY THE CODE BELOW SO THAT THE FOLDER PATH POINTS R TO WHEREVER THE RAW DATA YOU JUST DOWNLOADED IS LOCATED ON YOUR COMPUTER. Be careful with forward slashes. Folders always have a forward slash in front of them, and files do not.
 ```{r load}
 # Load pbmc scRNAseq dataset
-
-
+pbmc.data <- Read10X(data.dir = "~/filtered_gene_bc_matrices/hg19/")
 ```
+
+
+# Create Seurat Object
+```{r}
+pbmc <- CreateSeuratObject(counts = pbmc.data, project = "pbmc3k", min.cells = 3, min.features = 200)
+```
+
 
 # Perform Subsetting for Quality Control
 ```{r qc}
+pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
+pbmc[["percent.ribo"]] <- PercentageFeatureSet(pbmc, pattern = "^RP[SL]")
+pbmc[["percent.hb"]] <- PercentageFeatureSet(pbmc, pattern = "^HB[AB]")
 
+
+pbmc <- subset(pbmc, subset = nFeature_RNA > 200 & nFeature_RNA < 7000 & nCount_RNA < 100000 & percent.mt < 10 & percent.hb < 2)
 ```
 
 # Normalize
 ```{r normalize}
+
+pbmc <- NormalizeData(pbmc, normalization.method = "LogNormalize", scale.factor = 10000)
 
 ```
 
 # Identify Highly Variable Features
 ```{r varfeatures}
 
+pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
 ```
 
 # Scale Features
@@ -76,7 +94,9 @@ This step can also be known as linear dimensional reduction. Numerous methods
 exist for visualization of principle components (PCs). A common method is 
 *ElbowPlot*, which plots the standard deviations of the principle components. 
 The left of the 'elbow' tends to represent the significant dimensions. 
+
 Other visualization methods include *JackStraw* (slow) and *DimHeatmap*. Note that 
+
 higher dimensions can be chosen, especially if certain rare cell-type signatures 
 are distinguishable in these PCs. *DimHeatmap* is helpful in seeing these genes.
 More information can be found at: 
@@ -191,6 +211,7 @@ Idents(pbmc) <- pbmc$singleR
 ## Note the use of group.by to label cells by certain identifiers (singleR here)
 ## Seurat uses ggplot, so plot titles (and more) can be edited with ggplot2 functions
 ## NoLegend() (Seurat) removes DimPlot legend, useful if plot is labeled
+
 DimPlot(pbmc,
         reduction = "umap",
         group.by = "singleR",
@@ -207,6 +228,7 @@ DimPlot(pbmc,
 all of the other clusters. If you want to look at the genes that make cluster (A)
 most different from another cluster (B), you can use *FindMarkers* and set ident.1 
 equal to the cluster of interest (A) and ident.2 equal to its comparison (B).
+
 ```{r deg}
 #### FindAllMarkers ####
 # Find differential markers for every cluster compared to all remaining cells
