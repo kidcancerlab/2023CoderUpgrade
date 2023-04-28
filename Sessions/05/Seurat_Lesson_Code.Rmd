@@ -36,40 +36,105 @@ set.seed(132)
 Link to download the example dataset we are using: https://cf.10xgenomics.com/samples/cell/pbmc3k/pbmc3k_filtered_gene_bc_matrices.tar.gz
 
 
-# Load in scRNAseq dataset: ***YOU WILL NEED TO MODIFY THE CODE BELOW SO THAT THE FOLDER PATH POINTS R TO WHEREVER THE RAW DATA YOU JUST DOWNLOADED IS LOCATED ON YOUR COMPUTER. Be careful with forward slashes. Folders always have a forward slash in front of them, and files do not.
+# Load in scRNAseq dataset: 
+***YOU WILL NEED TO MODIFY THE CODE BELOW SO THAT THE FOLDER PATH POINTS R TO 
+WHEREVER THE RAW DATA IS LOCATED ON YOUR COMPUTER. 
+Be careful with forward slashes. Folders always have a forward slash in front 
+of them, and files do not.
 ```{r load}
 # Load pbmc scRNAseq dataset
-pbmc.data <- Read10X(data.dir = "~/filtered_gene_bc_matrices/hg19/")
+pbmc.data <- Read10X(data.dir = "~/pbmc3k_filtered_gene_bc_matrices/hg19/")
 ```
 
 
 # Create Seurat Object
-```{r}
-pbmc <- CreateSeuratObject(counts = pbmc.data, project = "pbmc3k", min.cells = 3, min.features = 200)
+```{r createobj}
+pbmc <- CreateSeuratObject(counts = pbmc.data,
+                           project = "pbmc3k",
+                           min.cells = 3,
+                           min.features = 200)
 ```
 
-
 # Perform Subsetting for Quality Control
+All subsetting will depend on your sample and its quality and conditions. For 
+instance, if one sample is a tumor treated with effective chemotherapy, you may 
+expect to see a higher percent of mitochondrial genes and may want to include 
+more of these dying cells in your subsetting (say, 25% mitochondrial genes). 
+All subsetting should depend on the spread of your data, with outliers (both 
+high and low) typically targeted for exclusion.
+**Feature subsetting:**
+nFeature_RNA: number of genes (features) detected per cell. 
+Subsetting the number of features per cells can help to remove doublets (two cells
+that grouped together as "one" -> high nFeature_RNA) and non-cells, such as 
+dead cells or free mRNA that grouped together (low nFeature_RNA).
+
+**Count subsetting:**
+nCount_RNA: number of unique molecule identifiers (UMIs) per cell
+High nCount_RNA also indicates doublets, and so is another method for 
+filtering out those doublets. Some prefer using this method to using nFeatures to remove 
+doublets. Using both, one can be fairly confident of removing doublets. 
+
+**Mitochondrial gene subsetting:**
+Subsetting the data by percent mitochondrial genes helps remove poor quality 
+cells, such as dead cells or cells with a broken membrane (this causes leakage of
+mRNA). These cells have a higher percentage of mitochondrial genes. Typically, 
+25% and lower is preferred; however, again, this depends on your data spread 
+and your expectations for the sample. 
 ```{r qc}
+#### Visualize Outliers ####
 pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
 pbmc[["percent.ribo"]] <- PercentageFeatureSet(pbmc, pattern = "^RP[SL]")
 pbmc[["percent.hb"]] <- PercentageFeatureSet(pbmc, pattern = "^HB[AB]")
 
+# Violin plot to visualize outliers
+VlnPlot(pbmc,
+        features = c("nFeature_RNA",
+                     "nCount_RNA",
+                     "percent.mt"))
+VlnPlot(pbmc,
+        features = c("percent.mt",
+                     "percent.ribo",
+                     "percent.hb"))
 
-pbmc <- subset(pbmc, subset = nFeature_RNA > 200 & nFeature_RNA < 7000 & nCount_RNA < 100000 & percent.mt < 10 & percent.hb < 2)
+# Scatter plots to visualize outliers using combinations of criteria for subsetting
+## For instance, cells with both high nCount and nFeature are likely doublets.
+## Low nCount and high mitochondrial percentage can indicate dead/dying cells 
+## where membrane leakage has occured.
+plot1 <- FeatureScatter(pbmc,
+                        feature1 = "nCount_RNA",
+                        feature2 = "percent.mt") + 
+  theme(legend.position="none")
+plot2 <- FeatureScatter(pbmc,
+                        feature1 = "nCount_RNA",
+                        feature2 = "nFeature_RNA") + 
+  theme(legend.position="none")
+# Plots can be assigned to an object and then patchwork uses the below 
+# to plot these side by side
+plot1 + plot2
+
+#### Subset ####
+pbmc <- subset(pbmc,
+               subset = nFeature_RNA > 300 &
+                 nFeature_RNA < 2000 &
+                 nCount_RNA < 8000 &
+                 percent.mt < 10 &
+                 percent.hb < 2)
 ```
 
 # Normalize
+Normalization is the process of adjusting gene expression values to eliminate/reduce 
+the influence of technical effects impacting all genes the same way.
 ```{r normalize}
-
-pbmc <- NormalizeData(pbmc, normalization.method = "LogNormalize", scale.factor = 10000)
-
+pbmc <- NormalizeData(pbmc,
+                      normalization.method = "LogNormalize",
+                      scale.factor = 10000)
 ```
 
 # Identify Highly Variable Features
 ```{r varfeatures}
-
-pbmc <- FindVariableFeatures(pbmc, selection.method = "vst", nfeatures = 2000)
+pbmc <- FindVariableFeatures(pbmc,
+                             selection.method = "vst",
+                             nfeatures = 2000)
 ```
 
 # Scale Features
@@ -128,6 +193,10 @@ pbmc <- FindNeighbors(pbmc,
                       dims = 1:10)
 
 #### Find Clusters ####
+# Low resolution (low number of clusters)
+pbmc <- FindClusters(pbmc,
+                     resolution = 0.1)
+# High resolution (higher number of clusters)
 pbmc <- FindClusters(pbmc,
                      resolution = 0.5)
 ```
@@ -172,7 +241,8 @@ list of genes associated with a certain cell type to suggest cell identities.
 A simpler, but often time-consuming approach, is to analyze the top 
 differentially expressed genes for each cluster (shown here) or certain unique 
 genes your lab or others have used to identify specific cell types, if 
-applicable (see below techniques for feature plotting).
+applicable (see below techniques for feature plotting). Note: this is not from 
+the Seurat package.
 
 ## SingleR
 ```{r singler}
@@ -383,14 +453,19 @@ DotPlot(pbmc,
 
 # Saving Seurat Objects
 
-```{r save}
+```{r seuratsave}
+# Save
+
+# saveRDS
 
 ```
 
 # Loading Seurat Objects
 
-```{r load}
+```{r seuratload}
+# Load
 
+# readRDS
 ```
 
 # Adding/Modifying Metadata
