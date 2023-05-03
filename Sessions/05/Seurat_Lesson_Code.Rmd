@@ -39,12 +39,12 @@ Link to download the example dataset we are using: https://cf.10xgenomics.com/sa
 # Load in scRNAseq dataset: 
 ***YOU WILL NEED TO MODIFY THE CODE BELOW SO THAT THE FOLDER PATH POINTS R TO 
 WHEREVER THE RAW DATA IS LOCATED ON YOUR COMPUTER. Make sure that you include the 
-necessary folders in the path to the below folders (you may replace the "~"). 
+necessary folders in the path to the below folders. 
 Be careful with forward slashes. Folders always have a forward slash in front of 
 them, and files do not.
 ```{r load}
 # Load pbmc scRNAseq dataset
-pbmc.data <- Read10X(data.dir = "~/pbmc3k_filtered_gene_bc_matrices/hg19")
+pbmc.data <- Read10X(data.dir = "pbmc3k_filtered_gene_bc_matrices/hg19")
 ```
 
 # Create Seurat Object
@@ -252,12 +252,7 @@ Generate a dimplot with a higher clustering resolution of 0.5. (You do not need
 to rerun anything prior to this clustering section).
 
 ```{r practice1}
-pbmc <- FindClusters(pbmc,
-                     resolution = 0.5)
 
-DimPlot(pbmc,
-        label = TRUE,
-        repel = TRUE)
 ```
 
 # Differentially Expressed Genes
@@ -487,24 +482,7 @@ Plot the expression of "CD8A" to identify CD8 T cells using a feature plot
 labels), ridgeplot, and dotplot (not scaled).
 
 ```{r practice2}
-Idents(pbmc) <- pbmc$RNA_snn_res.0.5
 
-FeaturePlot(pbmc,
-            features = "CD8A",
-            label = TRUE,
-            repel = TRUE)
-
-VlnPlot(pbmc,
-        features = "CD8A",
-        group.by = "cellid") +
-  RotatedAxis()
-
-RidgePlot(pbmc,
-          features = "CD8A")
-
-DotPlot(pbmc,
-        features = "CD8A",
-        scale = FALSE)
 ```
 
 # Saving Seurat Objects
@@ -589,122 +567,72 @@ Perform single cell analysis of a human bone marrow mononuclear cell dataset (10
 
 ## Load in bone marrow dataset
 ```{r} 
-# Load pbmc scRNAseq
 datasetbone_marrow_data <- Read10X(data.dir = "Challenge Dataset/hg19") 
 ```
 
 ## Create Seurat Object
 ```{r} 
-bone_marrow <- CreateSeuratObject(counts = bone_marrow_data,
-                                  project = "bonemarrow",
-                                  min.cells = 3,
-                                  min.features = 200) 
+
 ```
 
 ## Perform Subsetting for Quality Control
 ```{r qc} 
-bone_marrow[["percent.mt"]] <- PercentageFeatureSet(bone_marrow,
-                                                    pattern = "^MT-") 
-bone_marrow[["percent.ribo"]] <- PercentageFeatureSet(bone_marrow,
-                                                      pattern = "^RP[SL]") 
-bone_marrow[["percent.hb"]] <- PercentageFeatureSet(bone_marrow,
-                                                    pattern = "^HB[AB]")
 
-bone_marrow <- subset(bone_marrow,
-                      subset = nFeature_RNA > 200 &
-                        nFeature_RNA < 7000 &
-                        nCount_RNA < 100000 &
-                        percent.mt < 10 &
-                        percent.hb < 2) 
 ```
 
 ## Normalize
 ```{r normalize} 
-bone_marrow <- NormalizeData(bone_marrow,
-                             normalization.method = "LogNormalize",
-                             scale.factor = 10000) 
+
 ```
 
 ## Identify Highly Variable Features
 ```{r varfeatures} 
-bone_marrow <- FindVariableFeatures(bone_marrow,
-                                    selection.method = "vst",
-                                    nfeatures = 2000) 
+
 ```
 
 ## Scale Data
 ```{r} 
-bone_marrow <- ScaleData(bone_marrow,
-                         features = rownames(bone_marrow)) 
+
 ```
 
 ## Run PCA
 ```{r pca} 
-bone_marrow <- RunPCA(bone_marrow,
-                      features = VariableFeatures(object = bone_marrow)) 
-#### Elbow Plot #### 
-ElbowPlot(bone_marrow,
-          ndims = 25) 
+
 ```
 
 ## Find Neighbors and Find Clusters
-
 ```{r cluster} 
-bone_marrow <- FindNeighbors(bone_marrow, dims = 1:10) 
-bone_marrow <- FindClusters(bone_marrow, resolution = 0.5) 
+
 ```
 
 ## Run UMAP
 ```{r umap} 
-#### Run UMAP ##### Use the same dimensions as those in FindNeighbors()
-bone_marrow <- RunUMAP(bone_marrow, dims = 1:10)
 
-DimPlot(bone_marrow,
-        reduction = "umap")
-
-DimPlot(bone_marrow,
-        label = TRUE,
-        repel = TRUE) 
 ```
 
 ## FindMarkers of Clusters
 ```{r} 
-bone_marrow_markers <- FindAllMarkers(bone_marrow,
-                                      only.pos = TRUE,
-                                      logfc.threshold = 0.25)
 
-#### View Markers ####
-bone_marrow_markers %>% 
-  group_by(cluster) %>% 
-  slice_max(n = 5,
-            order_by = avg_log2FC) 
 ```
 
-## DotPlot: 
+## DotPlot:
+Dot plot showing cluster-wise expression of selected genes:
+MS4A1, NKG7, CD3E, LYZ, CD4
 ```{r} 
-# (less exaggerated, more representative of true differences)
-DotPlot(bone_marrow,
-        features = c("MS4A1",
-                     "NKG7",
-                     "CD3E",
-                     "LYZ",
-                     "CD4"),
-        scale = F) 
+
 ```
 
 ## FeaturePlot:
+Feature Plots showing expression of selected genes:
+MS4A1, NKG7, CD3E, LYZ
 ```{r}
-FeaturePlot(bone_marrow,
-            features = c("MS4A1",
-                         "NKG7",
-                         "CD3E",
-                         "LYZ"),
-            label = TRUE,
-            repel = TRUE) 
+
 ```
 
-## Let's make a Nebulosa density plot! Use this code to install Nebulosa and get started
+## Bonus: Let's make a Nebulosa density plot!
+Density Plot (Nebulosa Package) Showing Density of LYZ Expression
 
+Use this code to install Nebulosa and get started
 ```{r} 
 if (!require("BiocManager", quietly = TRUE)) 
   install.packages("BiocManager") 
@@ -714,7 +642,7 @@ library(Nebulosa)
 #plot_density(seurat object, "GENE SYMBOL") 
 #above is an example of how to use the density plot function from the Nebulosa package 
 #Below, make your own density plot of LYZ
-plot_density(bone_marrow, "LYZ") 
+ 
 ```
 
 ```{r}
